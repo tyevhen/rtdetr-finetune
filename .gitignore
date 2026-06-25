@@ -1,0 +1,33 @@
+# Python-generated files
+__pycache__/
+*.py[oc]
+build/
+dist/
+wheels/
+*.egg-info
+
+# Virtual environments
+.venv
+
+# OS / editor / tooling
+.DS_Store
+.vscode/
+.claude/
+
+# Datasets — large; download from Roboflow (COCO export) into data/
+/data/
+*.coco.zip
+
+# Model weights. Version the trained deliverable (models/final/, ~77MB) so each
+# checkpoint is traceable to its run via final/training_run.json. Ignore the rest
+# of models/ (bulky third-party assets like the MediaPipe .task file).
+/models/*
+!/models/final/
+
+# Training run output (OUTPUT_DIR): checkpoints, best_map/, final/
+/rtdetr-tennis/
+rtdetr-tennis*/
+
+# Generated script outputs (annotated images, trajectories, probes)
+*_out/
+eval_vis/
