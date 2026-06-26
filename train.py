@@ -701,15 +701,18 @@ def main() -> None:
             shutil.rmtree(final_dir)
         shutil.copytree(best_map_dir, final_dir)
         logger.info("final/ ← best_map/  (best EMA mAP@[.5:.95] checkpoint)")
-        # Load the EMA-best weights into the (already on-device) model for an honest
-        # test number on the deliverable — avoids reloading/moving a second model.
-        from safetensors.torch import load_file
-        model.load_state_dict(load_file(str(final_dir / "model.safetensors")))
+        # Reload the EMA-best deliverable via from_pretrained so transformers applies
+        # its checkpoint↔runtime key mapping. RT-DETR's saved key names differ from the
+        # module attribute names (e.g. out_proj/fc1/encoder.encoder on disk vs
+        # o_proj/mlp.fc1/encoder.aifi in the model), so a raw load_state_dict mismatches.
+        best = cast(PreTrainedModel, AutoModelForObjectDetection.from_pretrained(str(final_dir)))
+        best.to(model.device)  # type: ignore  # torch .to() overload stub confuses pyright
+        eval_model = best
     else:
         trainer.save_model(str(final_dir))
         processor.save_pretrained(str(final_dir))
         logger.info("final/ ← last-epoch model (no best_map checkpoint was saved)")
-    eval_model = model
+        eval_model = model
 
     # ── Final test-set evaluation (unbiased; val drove early stopping) ────────
     test_res: dict[str, Any] | None = None
