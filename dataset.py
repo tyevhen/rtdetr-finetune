@@ -127,17 +127,20 @@ class TennisRacketDataset(Dataset[dict[str, Any]]):
 
 # ── Collation ─────────────────────────────────────────────────────────────────
 
-def make_collate_fn(
-    processor: RTDetrImageProcessor,
-    split_name: str = "",
-) -> Callable[[list[dict[str, Any]]], dict[str, Any]]:
-    """Returns a collate_fn that encodes a batch using the HF image processor.
+class BatchCollator:
+    """Encodes a batch using the HF image processor (resize, normalize, bbox
+    conversion COCO xywh absolute → cxcywh normalized).
 
-    The processor handles resize, normalize, and bbox conversion
-    (COCO xywh absolute → cxcywh normalized).
+    Implemented as a top-level class (not a closure) so it is picklable: on
+    Windows ('spawn') and Python 3.14+ POSIX ('forkserver') the DataLoader sends
+    the collate_fn to worker processes, which requires it to pickle cleanly.
     """
 
-    def collate_fn(samples: list[dict[str, Any]]) -> dict[str, Any]:
+    def __init__(self, processor: RTDetrImageProcessor, split_name: str = "") -> None:
+        self.processor = processor
+        self.split_name = split_name
+
+    def __call__(self, samples: list[dict[str, Any]]) -> dict[str, Any]:
         images  = [s["image"] for s in samples]
         targets = [
             {"image_id": s["image_id"], "annotations": s["annotations"]}
@@ -150,14 +153,16 @@ def make_collate_fn(
         # cast: preprocess returns BatchFeature (UserDict subclass), not dict.
         encoding: dict[str, Any] = cast(
             dict[str, Any],
-            processor.preprocess(images=images, annotations=targets, return_tensors="pt"),
+            self.processor.preprocess(images=images, annotations=targets, return_tensors="pt"),
         )
 
-        tag = f"collate:{split_name}"
+        # Each worker process has its own _LOGGED_SPLITS, so this may log once per
+        # worker — a one-time, harmless diagnostic.
+        tag = f"collate:{self.split_name}"
         if tag not in _LOGGED_SPLITS:
             _LOGGED_SPLITS.add(tag)
             lbl = encoding["labels"][0]
-            logger.info("[%s] first-batch diagnostics:", split_name or "collate")
+            logger.info("[%s] first-batch diagnostics:", self.split_name or "collate")
             logger.info("  pixel_values shape : %s  dtype=%s",
                         tuple(encoding["pixel_values"].shape),
                         encoding["pixel_values"].dtype)
@@ -172,7 +177,13 @@ def make_collate_fn(
 
         return encoding
 
-    return collate_fn
+
+def make_collate_fn(
+    processor: RTDetrImageProcessor,
+    split_name: str = "",
+) -> Callable[[list[dict[str, Any]]], dict[str, Any]]:
+    """Returns a picklable collate callable (see BatchCollator)."""
+    return BatchCollator(processor, split_name)
 
 
 def make_val_loader(
