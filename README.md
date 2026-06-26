@@ -71,15 +71,13 @@ reinstall from the cu128 index.
 
 ## 5. Prepare the data
 
-Unzip both exports to the folder names `prepare_data.py` expects, then merge them.
-`prepare_data.py` normalizes each dataset's (incompatible, colliding) category ids
-to canonical `0=ball / 1=racket` and writes a single split into `data/`.
+With both `*.coco.zip` files sitting in the repo folder, just run `prepare_data.py`.
+It auto-extracts each zip (only if not already extracted), auto-locates the COCO
+folders, normalizes each dataset's (incompatible, colliding) category ids to
+canonical `0=ball / 1=racket`, and writes a single merged split into `data/`.
 
 ```powershell
-Expand-Archive ap-tennis.v2i.coco.zip -DestinationPath export_apt
-Expand-Archive Tennis_ball.coco.zip   -DestinationPath export_ball
-
-python prepare_data.py --clean      # merges into data\{train,valid,test}\
+python prepare_data.py --clean      # extracts + merges into data\{train,valid,test}\
 python dataset_stats.py             # sanity check
 ```
 
@@ -179,7 +177,7 @@ Same flow, with two differences: T4 has no bf16, so `train.py` auto-selects
 
 ```python
 !pip install -q transformers accelerate torchmetrics faster-coco-eval
-# upload/unzip the two COCO exports to export_apt/ and export_ball/, then:
+# upload the two *.coco.zip exports into the repo folder, then (auto-extracts):
 !python prepare_data.py --clean
 !python dataset_stats.py
 # persist outputs to Drive so they survive a disconnect:

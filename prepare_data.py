@@ -10,24 +10,28 @@ dropped. This is why a single global remap won't work: the SAME numeric id means
 different things across datasets (e.g. id 5 is "racket" in ap-tennis v2 but
 "person" in the Tennis_ball export), so normalization has to happen per source.
 
-Single-folder sources are carved into train/valid/test with a seeded random image
-split; pre-split sources keep their own partition. Image files are copied with a
-per-source prefix so names never collide, and image/annotation ids are reassigned
-to stay unique across the merged file. Output categories are always 0=ball,
-1=racket, so downstream (train.py, eval, stats) uses an identity remap.
+Each source points at its .zip. The script auto-extracts it (only if not already
+extracted) and auto-locates the folder(s) holding _annotations.coco.json, so you
+don't have to unzip by hand or match exact folder names. Single-folder sources are
+carved into train/valid/test with a seeded random image split; pre-split sources
+keep their own partition. Image files are copied with a per-source prefix so names
+never collide, and image/annotation ids are reassigned to stay unique across the
+merged file. Output categories are always 0=ball, 1=racket, so downstream
+(train.py, eval, stats) uses an identity remap.
 
-Usage (Windows / any OS):
-  uv run python prepare_data.py                              # uses SOURCES below
-  uv run python prepare_data.py --out data --val 0.10 --test 0.05 --seed 42
+Usage (Windows / any OS), with the .zip files sitting in the repo folder:
+  uv run python prepare_data.py --clean
+  uv run python prepare_data.py --clean --out data --val 0.10 --test 0.05 --seed 42
 
-Edit SOURCES to point at your unzipped exports. A source whose root does not
-exist is skipped with a warning, so you can run with just the datasets you have.
+Edit SOURCES to add/point at your exports. A source whose zip and extract dir are
+both missing is skipped with a warning, so you can run with just what you have.
 """
 
 import argparse
 import json
 import random
 import shutil
+import zipfile
 from collections import Counter
 from pathlib import Path
 from typing import Any
@@ -39,24 +43,55 @@ SPLITS = ["train", "valid", "test"]
 CANON = {0: "ball", 1: "racket"}
 CANON_CATEGORIES = [{"id": i, "name": n, "supercategory": "none"} for i, n in CANON.items()]
 
-# Each source: where it lives, whether it ships its own splits, and how its
-# category ids map onto the canonical classes (unlisted ids are dropped).
+# Each source: its zip, where to extract it, whether it ships its own splits, and
+# how its category ids map onto the canonical classes (unlisted ids are dropped).
 SOURCES: list[dict[str, Any]] = [
     {
-        # ap-tennis v2 — single folder under train/, ball + racket + people.
+        # ap-tennis v2 — single folder (everything under train/), ball + racket + people.
         "name": "apt",
-        "root": Path("export_apt/train"),
+        "zip": Path("ap-tennis.v2i.coco.zip"),
+        "extract": Path("export_apt"),
         "presplit": False,
         "remap": {1: 0, 5: 1},  # ball -> ball, tennis racquet -> racket
     },
     {
         # Tennis_ball — ball-only, already split; ball label fragmented across ids.
         "name": "ball",
-        "root": Path("export_ball"),
+        "zip": Path("Tennis_ball.coco.zip"),
+        "extract": Path("export_ball"),
         "presplit": True,
         "remap": {1: 0, 2: 0, 4: 0, 6: 0, 3: 1},  # all "tennis ball" variants -> ball
     },
 ]
+
+
+def ensure_extracted(zip_path: Path, extract_dir: Path) -> Path | None:
+    """Return a directory holding the export, extracting the zip if needed."""
+    already = extract_dir.exists() and any(extract_dir.rglob(ANN))
+    if already:
+        return extract_dir
+    if not zip_path.exists():
+        return None
+    print(f"       extracting {zip_path} -> {extract_dir}/")
+    extract_dir.mkdir(parents=True, exist_ok=True)
+    with zipfile.ZipFile(zip_path) as zf:
+        zf.extractall(extract_dir)
+    return extract_dir
+
+
+def find_split_dirs(root: Path) -> dict[str, Path]:
+    """Map split name -> dir containing its _annotations.coco.json (robust to nesting)."""
+    out: dict[str, Path] = {}
+    for ann in root.rglob(ANN):
+        if ann.parent.name in SPLITS:
+            out.setdefault(ann.parent.name, ann.parent)
+    return out
+
+
+def find_single_dir(root: Path) -> Path | None:
+    """The one dir holding _annotations.coco.json for a single-folder export."""
+    hits = sorted({p.parent for p in root.rglob(ANN)}, key=lambda p: len(p.parts))
+    return hits[0] if hits else None
 
 
 def remap_anns(coco: dict, remap: dict[int, int]) -> dict[int, list[dict]]:
@@ -103,26 +138,33 @@ def main() -> None:
     missing = 0
 
     for src in SOURCES:
-        name, root, remap = src["name"], src["root"], src["remap"]
-        if not root.exists():
-            print(f"[skip] source '{name}': {root} not found")
+        name, remap = src["name"], src["remap"]
+        root = ensure_extracted(src["zip"], src["extract"])
+        if root is None:
+            print(f"[skip] source '{name}': neither {src['zip']} nor extracted "
+                  f"{src['extract']}/ found")
             continue
 
         # Resolve, per split, the (image-folder, image-records, anns-by-img) to add.
         jobs: list[tuple[str, Path, list[dict], dict[int, list[dict]]]] = []
         if src["presplit"]:
-            for split in SPLITS:
-                ann_path = root / split / ANN
-                if not ann_path.exists():
-                    continue
-                coco = json.loads(ann_path.read_text())
-                jobs.append((split, root / split, coco["images"], remap_anns(coco, remap)))
+            split_dirs = find_split_dirs(root)
+            if not split_dirs:
+                print(f"[skip] source '{name}': no train/valid/test {ANN} under {root}/")
+                continue
+            for split, d in split_dirs.items():
+                coco = json.loads((d / ANN).read_text())
+                jobs.append((split, d, coco["images"], remap_anns(coco, remap)))
         else:
-            coco = json.loads((root / ANN).read_text())
+            d = find_single_dir(root)
+            if d is None:
+                print(f"[skip] source '{name}': no {ANN} found under {root}/")
+                continue
+            coco = json.loads((d / ANN).read_text())
             by_id = {im["id"]: im for im in coco["images"]}
             anns_by_img = remap_anns(coco, remap)
             for split, ids in split_ids(coco["images"], args.seed, args.val, args.test).items():
-                jobs.append((split, root, [by_id[i] for i in ids], anns_by_img))
+                jobs.append((split, d, [by_id[i] for i in ids], anns_by_img))
 
         src_total = 0
         for split, img_dir, images, anns_by_img in jobs:
@@ -147,7 +189,7 @@ def main() -> None:
                     acc[split]["annotations"].append(na)
                     cls_counts[split][a["category_id"]] += 1
                 src_total += 1
-        print(f"[ok]   source '{name}': {src_total} images added from {root}")
+        print(f"[ok]   source '{name}': {src_total} images added from {root}/")
 
     wrote_any = False
     for split in SPLITS:
@@ -163,7 +205,8 @@ def main() -> None:
         }))
 
     if not wrote_any:
-        print("\nNothing written — no sources found. Check SOURCES paths / unzip step.")
+        print("\nNothing written — no sources found. Put the .zip exports in this "
+              "folder (see SOURCES) and re-run.")
         return
 
     print("\n=== merged dataset ===")
