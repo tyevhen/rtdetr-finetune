@@ -94,9 +94,9 @@ MAP_THRESHOLD  = 5e-4  # minimum delta to count as improvement
 
 CHECKPOINT_EVERY_N = 5  # keep one checkpoint every N epochs; all others are deleted
 
-# COCO uses 1-indexed category_ids; model expects 0-indexed class indices.
-# Check your dataset's annotations.json for the actual category_id values.
-CATEGORY_REMAP = {1: 0, 5: 1}  # ap-tennis v2: id=1=ball→0, id=5=tennis racquet→1; player(3)/ball boy(2)/referee(4) ignored
+# prepare_data.py normalizes every source dataset to canonical ids (0=ball,
+# 1=racket) and writes them into data/, so the training-time remap is identity.
+CATEGORY_REMAP = {0: 0, 1: 1}  # canonical: 0=ball, 1=racket
 ID2LABEL: dict[int, str]  = {0: "ball", 1: "racket"}
 LABEL2ID: dict[str, int]  = {"ball": 0, "racket": 1}
 

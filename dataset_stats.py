@@ -15,8 +15,8 @@ import sys
 from collections import Counter
 from pathlib import Path
 
-# Keep in sync with train.py.
-CATEGORY_REMAP = {1: 0, 5: 1}            # ap-tennis v2: ball=1->0, tennis racquet=5->1
+# Data is normalized to canonical ids by prepare_data.py, so the remap is identity.
+CATEGORY_REMAP = {0: 0, 1: 1}            # 0=ball, 1=racket (see prepare_data.py)
 ID2LABEL = {0: "ball", 1: "racket"}
 SPLITS = ["train", "valid", "test"]
 
