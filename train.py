@@ -435,12 +435,25 @@ def write_run_metadata(
     test_res: dict[str, Any] | None,
 ) -> None:
     """Write training_run.json into the model dir so a committed checkpoint is
-    self-describing — which code, data, hyperparameters and metrics produced it."""
+    self-describing — which code, data, hyperparameters and metrics produced it.
+
+    Records library versions too: the deliverable must be reloaded via
+    transformers `from_pretrained`, and RT-DETR's checkpoint↔runtime key names can
+    shift between transformers releases, so the version used to produce it is the
+    one safe reference for a future loader."""
+    import platform
+    import transformers
     meta: dict[str, Any] = {
         "created":         datetime.now(timezone.utc).isoformat(timespec="seconds"),
         "git":             _git_commit(),
         "base_checkpoint": CHECKPOINT,
         "id2label":        ID2LABEL,
+        "versions": {
+            "python":       platform.python_version(),
+            "torch":        torch.__version__,
+            "transformers": transformers.__version__,
+            "cuda":         torch.version.cuda,
+        },
         "hyperparameters": {
             "max_epochs":      MAX_EPOCHS,
             "batch_size":      BATCH_SIZE,
