@@ -16,7 +16,7 @@ from collections import Counter
 from pathlib import Path
 
 # Keep in sync with train.py.
-CATEGORY_REMAP = {1: 0, 3: 1}            # COCO category_id -> model class
+CATEGORY_REMAP = {1: 0, 5: 1}            # ap-tennis v2: ball=1->0, tennis racquet=5->1
 ID2LABEL = {0: "ball", 1: "racket"}
 SPLITS = ["train", "valid", "test"]
 

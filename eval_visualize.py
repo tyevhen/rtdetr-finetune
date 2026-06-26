@@ -20,7 +20,7 @@ from transformers import AutoModelForObjectDetection, RTDetrImageProcessor
 MODEL_DIR = Path("models/final")
 TEST_DIR = Path("data/test")
 ANN = TEST_DIR / "_annotations.coco.json"
-CATEGORY_REMAP = {1: 0, 3: 1}  # COCO id -> model class (ball, racket)
+CATEGORY_REMAP = {1: 0, 5: 1}  # ap-tennis v2: ball=1, tennis racquet=5 -> model class (ball, racket)
 CLASS_NAMES = {0: "ball", 1: "racket"}
 TOP_K_PER_CLASS = 2   # how many predictions per class to draw
 OUT_DIR = Path("eval_vis")

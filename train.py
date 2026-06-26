@@ -96,7 +96,7 @@ CHECKPOINT_EVERY_N = 5  # keep one checkpoint every N epochs; all others are del
 
 # COCO uses 1-indexed category_ids; model expects 0-indexed class indices.
 # Check your dataset's annotations.json for the actual category_id values.
-CATEGORY_REMAP = {1: 0, 3: 1}  # dataset: id=1=ball→0, id=3=tennis racquet→1; id=2=player ignored
+CATEGORY_REMAP = {1: 0, 5: 1}  # ap-tennis v2: id=1=ball→0, id=5=tennis racquet→1; player(3)/ball boy(2)/referee(4) ignored
 ID2LABEL: dict[int, str]  = {0: "ball", 1: "racket"}
 LABEL2ID: dict[str, int]  = {"ball": 0, "racket": 1}
 
@@ -590,16 +590,20 @@ def main() -> None:
 
         _nan_steps_skipped: int = 0
 
-        def create_optimizer(self) -> torch.optim.Optimizer:
+        def create_optimizer(self, model: nn.Module | None = None) -> torch.optim.Optimizer:
             """AdamW with a 10× lower LR for the pretrained backbone and no weight
             decay on biases / 1-D (norm) parameters. Cosine schedule + warmup are
-            built by Trainer.create_scheduler on top of this optimizer."""
+            built by Trainer.create_scheduler on top of this optimizer.
+
+            Accepts the optional `model` arg that newer transformers pass in; falls
+            back to self.model for older versions that call it with no argument."""
+            mdl = model if model is not None else self.model
             if self.optimizer is None:
                 groups: list[dict[str, Any]] = []
                 for is_backbone in (True, False):
                     for decay in (True, False):
                         params = [
-                            p for n, p in self.model.named_parameters()
+                            p for n, p in mdl.named_parameters()
                             if p.requires_grad
                             and (("backbone" in n) == is_backbone)
                             and ((p.ndim >= 2 and not n.endswith(".bias")) == decay)

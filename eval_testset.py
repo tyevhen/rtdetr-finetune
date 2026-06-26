@@ -16,7 +16,7 @@ from torchmetrics.detection.mean_ap import MeanAveragePrecision
 MODEL_DIR = Path("models/final")
 TEST_DIR = Path("data/test")
 ANN = TEST_DIR / "_annotations.coco.json"
-CATEGORY_REMAP = {1: 0, 3: 1}  # COCO id -> model class (ball, racket)
+CATEGORY_REMAP = {1: 0, 5: 1}  # ap-tennis v2: ball=1, tennis racquet=5 -> model class (ball, racket)
 THRESHOLD = 0.5
 OUT_DIR = Path("eval_out")
 N_SAVE = 8
