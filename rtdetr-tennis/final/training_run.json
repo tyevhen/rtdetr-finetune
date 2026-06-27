@@ -1,0 +1,51 @@
+{
+  "created": "2026-06-26T17:06:58+00:00",
+  "git": {
+    "commit": "a3c6a0ae117222532e5ac1fdf00e08238bd37352",
+    "dirty": false
+  },
+  "base_checkpoint": "PekingU/rtdetr_r18vd",
+  "id2label": {
+    "0": "ball",
+    "1": "racket"
+  },
+  "versions": {
+    "python": "3.13.13",
+    "torch": "2.11.0+cu128",
+    "transformers": "5.12.1",
+    "cuda": "12.8"
+  },
+  "hyperparameters": {
+    "max_epochs": 72,
+    "batch_size": 8,
+    "grad_accum": 2,
+    "effective_batch": 16,
+    "lr": 0.0001,
+    "backbone_lr": 1e-05,
+    "weight_decay": 0.0001,
+    "scheduler": "cosine",
+    "warmup_ratio": 0.03,
+    "ema_decay": 0.9999,
+    "precision": "bf16"
+  },
+  "data": {
+    "train_images": 7070,
+    "val_images": 1261,
+    "train_objects": {
+      "racket": 4864,
+      "ball": 7273
+    },
+    "val_objects": {
+      "ball": 2094,
+      "racket": 605
+    }
+  },
+  "metrics": {
+    "best_val_map_5095": 0.6176,
+    "test": {
+      "map": 0.6174,
+      "map_50": 0.8134,
+      "map_75": 0.659
+    }
+  }
+}
