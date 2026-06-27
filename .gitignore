@@ -27,8 +27,9 @@ wheels/
 !/models/final/
 
 # Training run output (OUTPUT_DIR): checkpoints, best_map/, final/
-/rtdetr-tennis/
-rtdetr-tennis*/
+rtdetr-tennis/*
+!rtdetr-tennis/final/
+
 
 # Generated script outputs (annotated images, trajectories, probes)
 *_out/
